@@ -1,0 +1,11 @@
+{
+  "name": "Dotnet Prerelease Services CI Workflow",
+  "description": "Dotnet Prerelease Services CD Workflow.",
+  "iconName": "icon",
+  "categories": [
+    "dotnet"
+  ],
+  "filePatterns": [
+    "*.csproj$"
+  ]
+}

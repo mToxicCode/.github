@@ -1,0 +1,11 @@
+{
+  "name": "Dotnet Packages CI Workflow",
+  "description": "Dotnet Packages CI Workflow.",
+  "iconName": "icon",
+  "categories": [
+    "dotnet"
+  ],
+  "filePatterns": [
+    "*.csproj$"
+  ]
+}

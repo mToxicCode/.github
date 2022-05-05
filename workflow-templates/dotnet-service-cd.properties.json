@@ -1,0 +1,11 @@
+{
+  "name": "Dotnet Services CD Workflow",
+  "description": "Dotnet Services CD Workflow.",
+  "iconName": "icon",
+  "categories": [
+    "dotnet"
+  ],
+  "filePatterns": [
+    "*.csproj$"
+  ]
+}

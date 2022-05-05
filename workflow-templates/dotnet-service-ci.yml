@@ -1,0 +1,120 @@
+name: Dotnet Service CI Workflow
+
+on:
+  workflow_call:
+    input:
+      dotnet:
+        description: 'Dotnet Version'
+        required: true
+        default: [ '6.0' ]
+      docker-registry:
+        description: 'Docker Registry'
+        required: true
+        default: [ 'ghcr.io' ]
+      nuget-registry:
+        description: 'Nuget Registry'
+        required: true
+        default: [ 'github' ]
+      tests-mode:
+        description: 'Failed tests behaviour: skip | strict'
+        required: true
+        default: 'skip'
+
+jobs:
+  pre:
+    runs-on: ubuntu-latest
+    outputs:
+      unit: ${{ steps.check_units.outputs.files_exists }}
+      integration: ${{ steps.check_integrations.outputs.files_exists }}
+      version: ${{steps.version.outputs.version_tag}}
+    steps:
+      - uses: actions/checkout@v1
+      - name: Check for unit tests
+        id: check_units
+        uses: andstor/file-existence-action@v1
+        with:
+          files: "*.Tests.csproj"
+      - name: Check for integration tests
+        id: check_integrations
+        uses: andstor/file-existence-action@v1
+        with:
+          files: "*.IntegrationTests.csproj, docker-compose.integration.yml"
+      - uses: paulhatch/semantic-version@v4.0.2
+        id: version
+        with:
+          major_pattern: "(breaking)"
+          minor_pattern: "(fix)"
+          format: "${major}.${minor}.${patch}"
+          search_commit_body: true
+  build:
+    needs: pre
+    strategy:
+      matrix:
+        dotnet: ${{inputs.dotnet}}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: ${{ matrix.dotnet }}
+      - run: dotnet build
+  unit-tests:
+    needs: pre
+    continue-on-error: ${{inputs.tests-mode == 'skip'}}
+    if: ${{ needs.pre.outputs.unit  }}
+    strategy:
+      matrix:
+        dotnet: ${{inputs.dotnet}}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: ${{ matrix.dotnet }}
+      - run: dotnet test *.Tests.csproj
+  integration-tests: # TODO: Add docker-compose work
+    needs: pre
+    continue-on-error: ${{inputs.tests-mode == 'skip'}}
+    if: ${{ needs.pre.outputs.integration  }}
+    strategy:
+      matrix:
+        dotnet: ${{inputs.dotnet}}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: ${{ matrix.dotnet }}
+      - run: dotnet test *.IntegrationsTests.csproj
+        
+  
+  publish-docker-image:
+    needs: pre, build, unit-test, integration-test]
+    strategy:
+      matrix:
+        registry: ${{inputs.docker-registry}}
+    uses: ./.github/workflows/docker-image-publish.yml
+    with:
+      registry: ${{matrix.registry}}
+      is-latest: 'true'
+      version: ${{needs.pre.outputs.version}}
+  
+  publish-nuget-package:
+    needs: [ pre, build, unit-test, integration-test ]
+    strategy:
+      matrix:
+        registry: ${{inputs.nuget-registry}}
+    uses: ./.github/workflows/docker-image-publish.yml
+    with:
+      mode: ${{matrix.registry}}
+      dotnet: ${{inputs.dotnet}}
+      version: ${{needs.pre.outputs.version}}
+      
+  create-tag:
+    needs: [ pre, build, unit-test, integration-test ]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: rickstaa/action-create-tag@v1
+        with:
+          tag: ${{needs.pre.outputs.version}}

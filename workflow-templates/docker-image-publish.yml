@@ -1,0 +1,62 @@
+name: Publish Docker Image
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: 'Semver of docker image'
+        required: true
+        default: '0.0.1'
+      registry:
+        description: 'Registry'
+        required: true
+        default: 'ghcr.io'
+      is-latest:
+        description: 'Defines is this image lates'
+        required: true
+        default: 'true'
+      
+        
+jobs:
+  publish-docker-image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Log in to the registry
+        uses: docker/login-action@master
+        with:
+          registry: ${{ inputs.registry }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (Latest)
+        if: ${{inputs.is-latest == 'true'}}
+        uses: docker/metadata-action@master
+        id: meta
+        with:
+          images: ${{ inputs.registry }}/${{ github.repository }}
+          tags: |
+            type=raw, value=latest
+            type=raw, value=${{ inputs.version }}
+            
+      - name: Extract metadata
+        if: ${{inputs.is-latest != 'true'}}
+        uses: docker/metadata-action@master
+        id: meta
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}
+          tags: |
+            type=raw, value=${{ inputs.version }}
+
+      - name: Build and Push Docker image
+        uses: docker/build-push-action@master
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

@@ -1,0 +1,47 @@
+name: Publish Nuget Package
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: 'Semver of nuget package'
+        required: true
+        default: '0.0.1'
+      dotnet:
+        description: 'Dotnet version of package'
+        required: true
+        default: ['6.0']
+      mode:
+        description: 'Nuget publish mode: github | nuget;'
+        required: true
+        default: 'github'
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-18.04
+    name: Create nuget package
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v1
+
+      - name: Setup .NET Core @ Latest
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: ${{ inputs.dotnet }}
+
+      - name: Log in registry
+        run: | 
+          dotnet nuget add source --username ${{github.actor}} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{github.repository_owner}}/index.json"
+          dotnet nuget add source --store-password-in-clear-text --name nuget "https://api.nuget.org/v3/index.json"
+
+      - name: Build & Pack NuGet package
+        run: |
+          dotnet pack -c Release -o out -p:PackageVersion=${{ github.event.inputs.version }}
+          
+      - name: Push generated package to GitHub registry
+        if: ${{github.event.inputs.mode == 'github'}}
+        run: dotnet nuget push ./out/*.nupkg --skip-duplicate --no-symbols true --api-key ${{secrets.GITHUB_TOKEN}} --source "github"
+        
+      - name: Push generated package to Nuget registry
+        if: ${{github.event.inputs.mode == 'nuget'}} 
+        run: dotnet nuget push ./out/*.nupkg --skip-duplicate --no-symbols true --api-key ${{secrets.NUGET_API_KEY}} --source "nuget"
