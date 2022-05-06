@@ -5,15 +5,18 @@ on:
     inputs:
       version:
         description: 'Semver of docker image'
+        type: string
         required: true
         default: '0.0.1'
       registry:
         description: 'Registry'
-        required: true
-        default: 'ghcr.io'
+        type: string
+        required: false
+        default: '["ghcr.io"]'
       is-latest:
         description: 'Defines is this image lates'
-        required: true
+        type: string
+        required: false
         default: 'true'
       
         
@@ -23,6 +26,9 @@ jobs:
     permissions:
       contents: read
       packages: write
+    strategy:
+      matrix:
+        registry: ${{fromJSON(inputs.registry)}}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -30,7 +36,7 @@ jobs:
       - name: Log in to the registry
         uses: docker/login-action@master
         with:
-          registry: ${{ inputs.registry }}
+          registry: ${{ matrix.registry }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
@@ -39,7 +45,7 @@ jobs:
         uses: docker/metadata-action@master
         id: meta
         with:
-          images: ${{ inputs.registry }}/${{ github.repository }}
+          images: ${{ matrix.registry }}/${{ github.repository }}
           tags: |
             type=raw, value=latest
             type=raw, value=${{ inputs.version }}
@@ -49,7 +55,7 @@ jobs:
         uses: docker/metadata-action@master
         id: meta
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository }}
+          images: ${{ matrix.registry }}/${{ github.repository }}
           tags: |
             type=raw, value=${{ inputs.version }}
 

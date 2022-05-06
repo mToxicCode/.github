@@ -10,18 +10,21 @@ on:
         default: '0.0.1'
       dotnet:
         description: 'Dotnet version of package'
-        required: true
+        required: false
         type: string
         default: '["6.0"]'
       mode:
         description: 'Nuget publish mode: github | nuget;'
-        required: true
+        required: false
         type: string
-        default: 'github'
+        default: '["github"]'
 
 jobs:
   build-and-publish:
     runs-on: ubuntu-18.04
+    strategy:
+      matrix:
+        mode: ${{fromJSON(inputs.mode)}}
     name: Create nuget package
     steps:
       - name: Checkout repository
@@ -42,9 +45,9 @@ jobs:
           dotnet pack -c Release -o out -p:PackageVersion=${{ github.event.inputs.version }}
           
       - name: Push generated package to GitHub registry
-        if: ${{github.event.inputs.mode == 'github'}}
+        if: ${{matrix.mode == 'github'}}
         run: dotnet nuget push ./out/*.nupkg --skip-duplicate --no-symbols true --api-key ${{secrets.GITHUB_TOKEN}} --source "github"
         
       - name: Push generated package to Nuget registry
-        if: ${{github.event.inputs.mode == 'nuget'}} 
+        if: ${{matrix.mode == 'nuget'}} 
         run: dotnet nuget push ./out/*.nupkg --skip-duplicate --no-symbols true --api-key ${{secrets.NUGET_API_KEY}} --source "nuget"

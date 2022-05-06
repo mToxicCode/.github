@@ -65,7 +65,7 @@ jobs:
   unit-tests:
     needs: pre
     continue-on-error: ${{inputs.tests-mode == 'skip'}}
-    if: ${{ needs.pre.outputs.unit  }}
+    if: ${{ needs.pre.outputs.check_units  }}
     strategy:
       matrix:
         dotnet: ${{fromJSON(inputs.dotnet)}}
@@ -79,7 +79,7 @@ jobs:
   integration-tests: # TODO: Add docker-compose work
     needs: pre
     continue-on-error: ${{inputs.tests-mode == 'skip'}}
-    if: ${{ needs.pre.outputs.integration  }}
+    if: ${{ needs.pre.outputs.check_integrations  }}
     strategy:
       matrix:
         dotnet: ${{fromJSON(inputs.dotnet)}}
@@ -94,25 +94,16 @@ jobs:
   
   publish-docker-image:
     needs: [pre, build, unit-tests, integration-tests]
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        registry: ${{fromJSON(inputs.docker-registry)}}
     uses: ./.github/workflows/docker-image-publish.yml
       with:
-        registry: ${{matrix.registry}}
+        registry: ${{inputs.docker-registry}}
         is-latest: 'true'
         version: ${{needs.pre.outputs.version}}
   
   publish-nuget-package:
-    needs: [pre, build, unit-tests, integration-tests]
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        registry: ${{fromJSON(inputs.nuget-registry)}}
     uses: ./.github/workflows/docker-image-publish.yml
       with:
-        mode: ${{matrix.registry}}
+        mode: ${{input.nuget-registry}}
         dotnet: ${{inputs.dotnet}}
         version: ${{needs.pre.outputs.version}}
       
