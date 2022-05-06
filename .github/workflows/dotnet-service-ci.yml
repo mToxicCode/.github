@@ -95,17 +95,18 @@ jobs:
   publish-docker-image:
     needs: [pre, build, unit-tests, integration-tests]
     uses: ./.github/workflows/docker-image-publish.yml
-      with:
-        registry: ${{inputs.docker-registry}}
-        is-latest: 'true'
-        version: ${{needs.pre.outputs.version}}
+    with:
+      registry: ${{inputs.docker-registry}}
+      is-latest: 'true'
+      version: ${{needs.pre.outputs.version}}
   
   publish-nuget-package:
+    needs: [pre, build, unit-tests, integration-tests]
     uses: ./.github/workflows/docker-image-publish.yml
-      with:
-        mode: ${{input.nuget-registry}}
-        dotnet: ${{inputs.dotnet}}
-        version: ${{needs.pre.outputs.version}}
+    with:
+      mode: ${{input.nuget-registry}}
+      dotnet: ${{inputs.dotnet}}
+      version: ${{needs.pre.outputs.version}}
       
   create-tag:
     needs: [pre, build, unit-tests, integration-tests]
