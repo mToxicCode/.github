@@ -98,12 +98,11 @@ jobs:
     strategy:
       matrix:
         registry: ${{fromJSON(inputs.docker-registry)}}
-    steps:
-      - uses: ./.github/workflows/docker-image-publish.yml
-        with:
-          registry: ${{matrix.registry}}
-          is-latest: 'true'
-          version: ${{needs.pre.outputs.version}}
+    uses: ./.github/workflows/docker-image-publish.yml
+      with:
+        registry: ${{matrix.registry}}
+        is-latest: 'true'
+        version: ${{needs.pre.outputs.version}}
   
   publish-nuget-package:
     needs: [pre, build, unit-tests, integration-tests]
@@ -111,12 +110,11 @@ jobs:
     strategy:
       matrix:
         registry: ${{fromJSON(inputs.nuget-registry)}}
-    steps:
-      - uses: ./.github/workflows/docker-image-publish.yml
-        with:
-          mode: ${{matrix.registry}}
-          dotnet: ${{inputs.dotnet}}
-          version: ${{needs.pre.outputs.version}}
+    uses: ./.github/workflows/docker-image-publish.yml
+      with:
+        mode: ${{matrix.registry}}
+        dotnet: ${{inputs.dotnet}}
+        version: ${{needs.pre.outputs.version}}
       
   create-tag:
     needs: [pre, build, unit-tests, integration-tests]
