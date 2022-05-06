@@ -91,22 +91,75 @@ jobs:
           dotnet-version: ${{ matrix.dotnet }}
       - run: dotnet test *.IntegrationsTests.csproj
         
-  
   publish-docker-image:
     needs: [pre, build, unit-tests, integration-tests]
-    uses: ./.github/workflows/docker-image-publish.yml
-    with:
-      registry: ${{inputs.docker-registry}}
-      is-latest: 'true'
-      version: ${{needs.pre.outputs.version}}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        registry: ${{fromJSON(inputs.docker-registry)}}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Log in to the registry
+        uses: docker/login-action@master
+        with:
+          registry: ${{ matrix.registry }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (Latest)
+        uses: docker/metadata-action@master
+        id: meta
+        with:
+          images: ${{ matrix.registry }}/${{ github.repository }}
+          tags: |
+            type=raw, value=latest
+            type=raw, value=${{ inputs.version }}
+
+      - name: Build and Push Docker image
+        uses: docker/build-push-action@master
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
   
   publish-nuget-package:
     needs: [pre, build, unit-tests, integration-tests]
-    uses: ./.github/workflows/docker-image-publish.yml
-    with:
-      mode: ${{input.nuget-registry}}
-      dotnet: ${{inputs.dotnet}}
-      version: ${{needs.pre.outputs.version}}
+    runs-on: ubuntu-18.04
+    strategy:
+      matrix:
+        mode: ${{fromJSON(inputs.nuget-repository)}}
+    name: Create nuget package
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v1
+
+      - name: Setup .NET Core @ Latest
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: ${{ fromJSON(inputs.dotnet) }}
+
+      - name: Log in registry
+        run: |
+          dotnet nuget add source --username ${{github.actor}} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{github.repository_owner}}/index.json"
+          dotnet nuget add source --store-password-in-clear-text --name nuget "https://api.nuget.org/v3/index.json"
+
+      - name: Build & Pack NuGet package
+        run: |
+          dotnet pack -c Release -o out -p:PackageVersion=${{ github.event.inputs.version }}
+
+      - name: Push generated package to GitHub registry
+        if: ${{matrix.mode == 'github'}}
+        run: dotnet nuget push ./out/*.nupkg --skip-duplicate --no-symbols true --api-key ${{secrets.GITHUB_TOKEN}} --source "github"
+
+      - name: Push generated package to Nuget registry
+        if: ${{matrix.mode == 'nuget'}}
+        run: dotnet nuget push ./out/*.nupkg --skip-duplicate --no-symbols true --api-key ${{secrets.NUGET_API_KEY}} --source "nuget"
       
   create-tag:
     needs: [pre, build, unit-tests, integration-tests]
