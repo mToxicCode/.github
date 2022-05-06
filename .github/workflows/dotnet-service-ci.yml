@@ -65,7 +65,7 @@ jobs:
   unit-tests:
     needs: pre
     continue-on-error: ${{inputs.tests-mode == 'skip'}}
-    if: ${{ needs.pre.outputs.check_units  }}
+   # if: ${{ needs.pre.outputs.check_units  }}
     strategy:
       matrix:
         dotnet: ${{fromJSON(inputs.dotnet)}}
@@ -79,7 +79,7 @@ jobs:
   integration-tests: # TODO: Add docker-compose work
     needs: pre
     continue-on-error: ${{inputs.tests-mode == 'skip'}}
-    if: ${{ needs.pre.outputs.check_integrations  }}
+  #  if: ${{ needs.pre.outputs.check_integrations  }}
     strategy:
       matrix:
         dotnet: ${{fromJSON(inputs.dotnet)}}
