@@ -6,15 +6,15 @@ on:
       dotnet:
         description: 'Dotnet Version'
         required: true
-        default: [ '6.0' ]
+        default: '[ "6.0" ]'
       docker-registry:
         description: 'Docker Registry'
         required: true
-        default: [ 'ghcr.io' ]
+        default: '[ "ghcr.io" ]'
       nuget-registry:
         description: 'Nuget Registry'
         required: true
-        default: [ 'github' ]
+        default: '[ "github" ]'
       tests-mode:
         description: 'Failed tests behaviour: skip | strict'
         required: true
@@ -50,7 +50,7 @@ jobs:
     needs: pre
     strategy:
       matrix:
-        dotnet: ${{inputs.dotnet}}
+        dotnet: ${{fromJSON(inputs.dotnet)}}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -64,7 +64,7 @@ jobs:
     if: ${{ needs.pre.outputs.unit  }}
     strategy:
       matrix:
-        dotnet: ${{inputs.dotnet}}
+        dotnet: ${{fromJSON(inputs.dotnet)}}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -78,7 +78,7 @@ jobs:
     if: ${{ needs.pre.outputs.integration  }}
     strategy:
       matrix:
-        dotnet: ${{inputs.dotnet}}
+        dotnet: ${{fromJSON(inputs.dotnet)}}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -92,7 +92,7 @@ jobs:
     needs: pre, build, unit-test, integration-test]
     strategy:
       matrix:
-        registry: ${{inputs.docker-registry}}
+        registry: ${{fromJSON(inputs.docker-registry)}}
     uses: ./.github/workflows/docker-image-publish.yml
     with:
       registry: ${{matrix.registry}}
@@ -103,7 +103,7 @@ jobs:
     needs: [ pre, build, unit-test, integration-test ]
     strategy:
       matrix:
-        registry: ${{inputs.nuget-registry}}
+        registry: ${{fromJSON(inputs.nuget-registry)}}
     uses: ./.github/workflows/docker-image-publish.yml
     with:
       mode: ${{matrix.registry}}

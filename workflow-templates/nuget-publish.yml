@@ -10,7 +10,7 @@ on:
       dotnet:
         description: 'Dotnet version of package'
         required: true
-        default: ['6.0']
+        default: '["6.0"]'
       mode:
         description: 'Nuget publish mode: github | nuget;'
         required: true
@@ -27,7 +27,7 @@ jobs:
       - name: Setup .NET Core @ Latest
         uses: actions/setup-dotnet@v1
         with:
-          dotnet-version: ${{ inputs.dotnet }}
+          dotnet-version: ${{ fromJSON(inputs.dotnet) }}
 
       - name: Log in registry
         run: | 
