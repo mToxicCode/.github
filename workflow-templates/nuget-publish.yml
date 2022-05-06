@@ -6,14 +6,17 @@ on:
       version:
         description: 'Semver of nuget package'
         required: true
+        type: string
         default: '0.0.1'
       dotnet:
         description: 'Dotnet version of package'
         required: true
+        type: string
         default: '["6.0"]'
       mode:
         description: 'Nuget publish mode: github | nuget;'
         required: true
+        type: string
         default: 'github'
 
 jobs:
