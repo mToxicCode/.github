@@ -99,7 +99,7 @@ jobs:
       matrix:
         registry: ${{fromJSON(inputs.docker-registry)}}
     steps:
-      - uses: ./.github/workflow-templates/docker-image-publish.yml
+      - uses: ./.github/workflows/docker-image-publish.yml
         with:
           registry: ${{matrix.registry}}
           is-latest: 'true'
@@ -112,7 +112,7 @@ jobs:
       matrix:
         registry: ${{fromJSON(inputs.nuget-registry)}}
     steps:
-      - uses: ./.github/workflow-templates/docker-image-publish.yml
+      - uses: ./.github/workflows/docker-image-publish.yml
         with:
           mode: ${{matrix.registry}}
           dotnet: ${{inputs.dotnet}}
