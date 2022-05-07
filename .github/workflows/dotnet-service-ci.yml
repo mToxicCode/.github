@@ -133,7 +133,7 @@ jobs:
     runs-on: ubuntu-18.04
     strategy:
       matrix:
-        mode: ${{fromJSON(inputs.nuget-repository)}}
+        mode: ${{fromJSON(inputs.nuget-registry)}}
     name: Create nuget package
     steps:
       - name: Checkout repository
