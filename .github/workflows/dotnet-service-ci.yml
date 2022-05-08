@@ -65,7 +65,7 @@ jobs:
   unit-tests:
     needs: pre
     continue-on-error: ${{inputs.tests-mode == 'skip'}}
-   # if: ${{ needs.pre.outputs.check_units  }}
+  # if: ${{ needs.pre.outputs.check_units  }}
     strategy:
       matrix:
         dotnet: ${{fromJSON(inputs.dotnet)}}
@@ -75,11 +75,13 @@ jobs:
       - uses: actions/setup-dotnet@v1
         with:
           dotnet-version: ${{ matrix.dotnet }}
-      - run: dotnet test *.Tests.csproj
+      - run: |
+          dotnet nuget add source --username ${{github.actor}} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{github.repository_owner}}/index.json"
+          dotnet test **/*.Tests.csproj
   integration-tests: # TODO: Add docker-compose work
     needs: pre
     continue-on-error: ${{inputs.tests-mode == 'skip'}}
-  #  if: ${{ needs.pre.outputs.check_integrations  }}
+ #  if: ${{ needs.pre.outputs.check_integrations  }}
     strategy:
       matrix:
         dotnet: ${{fromJSON(inputs.dotnet)}}
@@ -89,7 +91,9 @@ jobs:
       - uses: actions/setup-dotnet@v1
         with:
           dotnet-version: ${{ matrix.dotnet }}
-      - run: dotnet test *.IntegrationsTests.csproj
+      - run: |
+          dotnet nuget add source --username ${{github.actor}} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{github.repository_owner}}/index.json"
+          dotnet test **/*.IntegrationsTests.csproj
         
   publish-docker-image:
     needs: [pre, build, unit-tests, integration-tests]
@@ -124,6 +128,10 @@ jobs:
         uses: docker/build-push-action@master
         with:
           context: .
+          build-args: |
+            GITHUB_TOKEN = ${{ secrets.GITHUB_TOKEN }}
+            GITHUB_USERNAME = ${{ github.actor }}
+            REPOSITORY_OWNER = ${{github.repository_owner}}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
