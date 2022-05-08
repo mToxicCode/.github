@@ -7,7 +7,7 @@ on:
         description: 'Dotnet Version'
         required: false
         type: string
-        default: '[ "6.0" ]'
+        default: "6.0"
       docker-registry:
         description: 'Docker Registry'
         required: false
@@ -30,7 +30,8 @@ jobs:
     outputs:
       unit: ${{ steps.check_units.outputs.files_exists }}
       integration: ${{ steps.check_integrations.outputs.files_exists }}
-      version: ${{steps.version.outputs.version_tag}}
+      version: ${{steps.version.outputs.version}}
+      version_tag: ${{steps.version.outputs.version_tag}}
     steps:
       - uses: actions/checkout@v1
       - name: Check for unit tests
@@ -53,15 +54,12 @@ jobs:
           search_commit_body: true
   build:
     needs: pre
-    strategy:
-      matrix:
-        dotnet: ${{fromJSON(inputs.dotnet)}}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-dotnet@v1
         with:
-          dotnet-version: ${{ matrix.dotnet }}
+          dotnet-version: ${{inputs.dotnet}}
       - run: |
           dotnet nuget add source --username ${{github.actor}} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{github.repository_owner}}/index.json"
           dotnet build
@@ -69,15 +67,12 @@ jobs:
     needs: pre
     continue-on-error: ${{inputs.tests-mode == 'skip'}}
   # if: ${{ needs.pre.outputs.check_units  }}
-    strategy:
-      matrix:
-        dotnet: ${{fromJSON(inputs.dotnet)}}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-dotnet@v1
         with:
-          dotnet-version: ${{ matrix.dotnet }}
+          dotnet-version: ${{inputs.dotnet}}
       - run: |
           dotnet nuget add source --username ${{github.actor}} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{github.repository_owner}}/index.json"
           dotnet test tests/**/*.Tests.csproj
@@ -85,15 +80,12 @@ jobs:
     needs: pre
     continue-on-error: ${{inputs.tests-mode == 'skip'}}
  #  if: ${{ needs.pre.outputs.check_integrations  }}
-    strategy:
-      matrix:
-        dotnet: ${{fromJSON(inputs.dotnet)}}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-dotnet@v1
         with:
-          dotnet-version: ${{ matrix.dotnet }}
+          dotnet-version: ${{inputs.dotnet}}
       - run: |
           dotnet nuget add source --username ${{github.actor}} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{github.repository_owner}}/index.json"
           dotnet test tests/**/*.IntegrationsTests.csproj
@@ -153,7 +145,7 @@ jobs:
       - name: Setup .NET Core @ Latest
         uses: actions/setup-dotnet@v1
         with:
-          dotnet-version: ${{ fromJSON(inputs.dotnet) }}
+          dotnet-version: ${{inputs.dotnet}}
 
       - name: Log in registry
         run: |
@@ -173,10 +165,10 @@ jobs:
         run: dotnet nuget push ./out/*.nupkg --skip-duplicate --no-symbols true --api-key ${{secrets.NUGET_API_KEY}} --source "nuget"
       
   create-tag:
-    needs: [pre, build, unit-tests, integration-tests]
+    needs: [pre, build, unit-tests, integration-tests, publish-nuget-package, publish-docker-image]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: rickstaa/action-create-tag@v1
         with:
-          tag: ${{needs.pre.outputs.version}}
+          tag: ${{needs.pre.outputs.version_tag}}
