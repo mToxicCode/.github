@@ -46,7 +46,7 @@ jobs:
       - uses: paulhatch/semantic-version@v4.0.2
         id: version
         with:
-          tag_prefix: ""
+          tag_prefix: "v"
           major_pattern: "(breaking)"
           minor_pattern: "(fix)"
           format: "${major}.${minor}.${patch}"
