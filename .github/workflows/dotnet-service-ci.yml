@@ -46,6 +46,7 @@ jobs:
       - uses: paulhatch/semantic-version@v4.0.2
         id: version
         with:
+          tag_prefix: ""
           major_pattern: "(breaking)"
           minor_pattern: "(fix)"
           format: "${major}.${minor}.${patch}"
@@ -57,6 +58,7 @@ jobs:
         dotnet: ${{fromJSON(inputs.dotnet)}}
     runs-on: ubuntu-latest
     steps:
+      - name: Build solution
       - uses: actions/checkout@v2
       - uses: actions/setup-dotnet@v1
         with:
@@ -79,7 +81,7 @@ jobs:
           dotnet-version: ${{ matrix.dotnet }}
       - run: |
           dotnet nuget add source --username ${{github.actor}} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{github.repository_owner}}/index.json"
-          dotnet test /**/*.Tests.csproj
+          dotnet test tests/**/*.Tests.csproj
   integration-tests: # TODO: Add docker-compose work
     needs: pre
     continue-on-error: ${{inputs.tests-mode == 'skip'}}
@@ -95,7 +97,7 @@ jobs:
           dotnet-version: ${{ matrix.dotnet }}
       - run: |
           dotnet nuget add source --username ${{github.actor}} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{github.repository_owner}}/index.json"
-          dotnet test /**/*.IntegrationsTests.csproj
+          dotnet test tests/**/*.IntegrationsTests.csproj
         
   publish-docker-image:
     needs: [pre, build, unit-tests, integration-tests]
@@ -124,7 +126,7 @@ jobs:
           images: ${{ matrix.registry }}/${{ github.repository }}
           tags: |
             type=raw, value=latest
-            type=raw, value=${{ inputs.version }}
+            type=raw, value=${{ needs.pre.outputs.version }}
 
       - name: Build and Push Docker image
         uses: docker/build-push-action@master
@@ -161,7 +163,7 @@ jobs:
 
       - name: Build & Pack NuGet package
         run: |
-          dotnet pack -c Release -o out -p:PackageVersion=${{ github.event.inputs.version }}
+          dotnet pack -c Release -o out -p:PackageVersion=${{ needs.pre.outputs.version }}
 
       - name: Push generated package to GitHub registry
         if: ${{matrix.mode == 'github'}}
