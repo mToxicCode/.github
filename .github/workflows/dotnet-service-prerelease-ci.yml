@@ -163,3 +163,8 @@ jobs:
       - name: Push generated package to Nuget registry
         if: ${{matrix.mode == 'nuget'}}
         run: dotnet nuget push ./out/*.nupkg --skip-duplicate --api-key ${{secrets.NUGET_API_KEY}}
+  finish:
+    needs: [ pre, build, publish-docker-image ]
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Finished"
