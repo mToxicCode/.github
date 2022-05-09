@@ -38,7 +38,7 @@ jobs:
         with:
           tag_prefix: "v"
           major_pattern: "(breaking)"
-          minor_pattern: "(fix)"
+          minor_pattern: "(feature)"
           format: "${major}.${minor}.${patch}-prerelease.${increment}"
           search_commit_body: true
   build:
