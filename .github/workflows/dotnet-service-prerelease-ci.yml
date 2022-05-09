@@ -38,12 +38,12 @@ jobs:
         id: check_units
         uses: andstor/file-existence-action@v1
         with:
-          files: "*.Tests.csproj"
+          files: "tests/**/*.Tests.csproj"
       - name: Check for integration tests
         id: check_integrations
         uses: andstor/file-existence-action@v1
         with:
-          files: "*.IntegrationTests.csproj, docker-compose.integration.yml"
+          files: "tests/**/*.IntegrationTests.csproj, docker-compose.integration.yml"
       - uses: paulhatch/semantic-version@v4.0.2
         id: version
         with:
