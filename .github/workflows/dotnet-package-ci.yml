@@ -55,7 +55,7 @@ jobs:
   unit-tests:
     needs: pre
     continue-on-error: ${{inputs.tests-mode == 'skip'}}
-    if: ${{ needs.pre.outputs.unit }}
+    if: ${{ needs.pre.outputs.unit  == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
