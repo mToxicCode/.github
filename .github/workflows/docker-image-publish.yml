@@ -1,7 +1,7 @@
 name: Publish Docker Image
 
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
       version:
         description: 'Semver of docker image'
@@ -19,7 +19,6 @@ on:
         required: false
         default: 'true'
       
-        
 jobs:
   publish-docker-image:
     runs-on: ubuntu-latest
@@ -63,6 +62,10 @@ jobs:
         uses: docker/build-push-action@master
         with:
           context: .
+          build-args: |
+            GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+            GITHUB_USERNAME=${{ github.actor }}
+            REPOSITORY_OWNER=${{github.repository_owner}}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

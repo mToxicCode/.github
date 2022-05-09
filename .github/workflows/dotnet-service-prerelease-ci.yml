@@ -1,0 +1,165 @@
+name: Dotnet Service CI Prerelease Workflow
+
+on:
+  workflow_call:
+    inputs:
+      dotnet:
+        description: 'Dotnet Version'
+        required: false
+        type: string
+        default: "6.0"
+      docker-registry:
+        description: 'Docker Registry'
+        required: false
+        type: string
+        default: '[ "ghcr.io" ]'
+      nuget-registry:
+        description: 'Nuget Registry'
+        type: string
+        required: false
+        default: '[ "github" ]'
+      tests-mode:
+        description: 'Failed tests behaviour: skip | strict'
+        type: string
+        required: false
+        default: 'skip'
+
+jobs:
+  pre:
+    runs-on: ubuntu-latest
+    outputs:
+      unit: ${{ steps.check_units.outputs.files_exists }}
+      integration: ${{ steps.check_integrations.outputs.files_exists }}
+      version: ${{steps.version.outputs.version}}
+      version_tag: ${{steps.version.outputs.version_tag}}
+    steps:
+      - uses: actions/checkout@v1
+      - name: Check for unit tests
+        id: check_units
+        uses: andstor/file-existence-action@v1
+        with:
+          files: "*.Tests.csproj"
+      - name: Check for integration tests
+        id: check_integrations
+        uses: andstor/file-existence-action@v1
+        with:
+          files: "*.IntegrationTests.csproj, docker-compose.integration.yml"
+      - uses: paulhatch/semantic-version@v4.0.2
+        id: version
+        with:
+          tag_prefix: "v"
+          major_pattern: "(breaking)"
+          minor_pattern: "(fix)"
+          format: "${major}.${minor}.${patch}-prerelease.${increment}"
+          search_commit_body: true
+  build:
+    needs: pre
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: ${{inputs.dotnet}}
+      - run: |
+          dotnet nuget add source --username ${{github.actor}} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{github.repository_owner}}/index.json"
+          dotnet build
+  unit-tests:
+    needs: pre
+    continue-on-error: ${{inputs.tests-mode == 'skip'}}
+    if: ${{needs.pre.outputs.unit}}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: ${{inputs.dotnet}}
+      - run: |
+          dotnet nuget add source --username ${{github.actor}} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{github.repository_owner}}/index.json"
+          dotnet test tests/**/*.Tests.csproj
+  integration-tests: # TODO: Add docker-compose work
+    needs: pre
+    continue-on-error: ${{inputs.tests-mode == 'skip'}}
+    if: ${{needs.pre.outputs.integration}}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: ${{inputs.dotnet}}
+      - run: |
+          dotnet nuget add source --username ${{github.actor}} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{github.repository_owner}}/index.json"
+          dotnet test tests/**/*.IntegrationsTests.csproj
+  
+  publish-docker-image:
+    needs: [pre, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        registry: ${{fromJSON(inputs.docker-registry)}}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Log in to the registry
+        uses: docker/login-action@master
+        with:
+          registry: ${{ matrix.registry }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        uses: docker/metadata-action@master
+        id: meta
+        with:
+          images: ${{ matrix.registry }}/${{ github.repository }}
+          tags: |
+            type=raw, value=${{ needs.pre.outputs.version }}
+            type=raw, value=prerelease-${{github.actor}}
+
+      - name: Build and Push Docker image
+        uses: docker/build-push-action@master
+        with:
+          context: .
+          build-args: |
+            GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+            GITHUB_USERNAME=${{ github.actor }}
+            REPOSITORY_OWNER=${{github.repository_owner}}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+  
+  publish-nuget-package:
+    needs: [pre, build]
+    continue-on-error: true
+    runs-on: ubuntu-18.04
+    strategy:
+      matrix:
+        mode: ${{fromJSON(inputs.nuget-registry)}}
+    name: Create nuget package
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v1
+
+      - name: Setup .NET Core @ Latest
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: ${{inputs.dotnet}}
+
+      - name: Log in registry
+        run: |
+          dotnet nuget add source --username ${{github.actor}} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{github.repository_owner}}/index.json"
+
+      - name: Build & Pack NuGet package
+        run: |
+          dotnet pack -c Release -o out -p:PackageVersion=${{ needs.pre.outputs.version }}
+
+      - name: Push generated package to GitHub registry
+        if: ${{matrix.mode == 'github'}}
+        run: dotnet nuget push ./out/*.nupkg --skip-duplicate --api-key ${{secrets.GITHUB_TOKEN}} --source "github"
+
+      - name: Push generated package to Nuget registry
+        if: ${{matrix.mode == 'nuget'}}
+        run: dotnet nuget push ./out/*.nupkg --skip-duplicate --api-key ${{secrets.NUGET_API_KEY}}

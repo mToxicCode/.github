@@ -1,1 +1,100 @@
-\
+name: Dotnet Package Prerelease CI Workflow
+
+on:
+  workflow_call:
+    inputs:
+      dotnet:
+        description: 'Dotnet Version'
+        required: false
+        type: string
+        default: "6.0"
+      nuget-registry:
+        description: 'Nuget Registry'
+        type: string
+        required: false
+        default: '[ "github" ]'
+      tests-mode:
+        description: 'Failed tests behaviour: skip | strict'
+        type: string
+        required: false
+        default: 'skip'
+
+jobs:
+  pre:
+    runs-on: ubuntu-latest
+    outputs:
+      unit: ${{ steps.check_units.outputs.files_exists }}
+      version: ${{steps.version.outputs.version}}
+      version_tag: ${{steps.version.outputs.version_tag}}
+    steps:
+      - uses: actions/checkout@v1
+      - name: Check for unit tests
+        id: check_units
+        uses: andstor/file-existence-action@v1
+        with:
+          files: "*.Tests.csproj"
+      - uses: paulhatch/semantic-version@v4.0.2
+        id: version
+        with:
+          tag_prefix: "v"
+          major_pattern: "(breaking)"
+          minor_pattern: "(fix)"
+          format: "${major}.${minor}.${patch}-prerelease.${increment}"
+          search_commit_body: true
+  build:
+    needs: pre
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: ${{inputs.dotnet}}
+      - run: |
+          dotnet nuget add source --username ${{github.actor}} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{github.repository_owner}}/index.json"
+          dotnet build
+  unit-tests:
+    needs: pre
+    continue-on-error: ${{inputs.tests-mode == 'skip'}}
+    if: ${{needs.pre.outputs.unit}}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: ${{inputs.dotnet}}
+      - run: |
+          dotnet nuget add source --username ${{github.actor}} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{github.repository_owner}}/index.json"
+          dotnet test tests/**/*.Tests.csproj
+
+  publish-nuget-package:
+    needs: [pre, build]
+    continue-on-error: true
+    runs-on: ubuntu-18.04
+    strategy:
+      matrix:
+        mode: ${{fromJSON(inputs.nuget-registry)}}
+    name: Create nuget package
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v1
+
+      - name: Setup .NET Core @ Latest
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: ${{inputs.dotnet}}
+
+      - name: Log in registry
+        run: |
+          dotnet nuget add source --username ${{github.actor}} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{github.repository_owner}}/index.json"
+
+      - name: Build & Pack NuGet package
+        run: |
+          dotnet pack -c Release -o out -p:PackageVersion=${{ needs.pre.outputs.version }}
+
+      - name: Push generated package to GitHub registry
+        if: ${{matrix.mode == 'github'}}
+        run: dotnet nuget push ./out/*.nupkg --skip-duplicate --api-key ${{secrets.GITHUB_TOKEN}} --source "github"
+
+      - name: Push generated package to Nuget registry
+        if: ${{matrix.mode == 'nuget'}}
+        run: dotnet nuget push ./out/*.nupkg --skip-duplicate --api-key ${{secrets.NUGET_API_KEY}}

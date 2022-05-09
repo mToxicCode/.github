@@ -66,7 +66,7 @@ jobs:
   unit-tests:
     needs: pre
     continue-on-error: ${{inputs.tests-mode == 'skip'}}
-  # if: ${{ needs.pre.outputs.check_units  }}
+    if: ${{ needs.pre.outputs.unit }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -79,7 +79,7 @@ jobs:
   integration-tests: # TODO: Add docker-compose work
     needs: pre
     continue-on-error: ${{inputs.tests-mode == 'skip'}}
- #  if: ${{ needs.pre.outputs.check_integrations  }}
+    if: ${{ needs.pre.outputs.integration }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -91,7 +91,7 @@ jobs:
           dotnet test tests/**/*.IntegrationsTests.csproj
         
   publish-docker-image:
-    needs: [pre, build, unit-tests, integration-tests]
+    needs: [pre, build]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -132,7 +132,8 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
   
   publish-nuget-package:
-    needs: [pre, build, unit-tests, integration-tests]
+    needs: [pre, build]
+    continue-on-error: true
     runs-on: ubuntu-18.04
     strategy:
       matrix:
@@ -164,7 +165,7 @@ jobs:
         run: dotnet nuget push ./out/*.nupkg --skip-duplicate --api-key ${{secrets.NUGET_API_KEY}}
       
   create-tag:
-    needs: [pre, build, unit-tests, integration-tests, publish-nuget-package, publish-docker-image]
+    needs: [pre, build, publish-docker-image, publish-nuget-package]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3

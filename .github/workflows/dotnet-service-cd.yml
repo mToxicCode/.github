@@ -1,0 +1,10 @@
+name: Publish Docker Image
+
+on:
+  workflow_dispatch:
+
+jobs:
+  mock:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Mocked"
